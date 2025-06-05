@@ -1,0 +1,1074 @@
+/auth/check_user.php
+<?php
+/*
+Check if a user exists by username.
+Return:
+  - { exists: true, has_password: true/false, user_id: 1 }
+  - { exists: false }
+Table: users
+*/
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+// Include database configuration
+require_once '../config.php';
+
+try {
+    // Get username from request
+    $username = '';
+      if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $username = $input['username'] ?? '';
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        $username = $_GET['username'] ?? '';
+    }
+    
+    // Validate input
+    if (empty($username)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Username is required']);
+        exit;
+    }
+    
+    // Prepare and execute query
+    $stmt = $pdo->prepare("SELECT id, username, password_hash FROM users WHERE username = :username LIMIT 1");
+    $stmt->bindParam(':username', $username, PDO::PARAM_STR);
+    $stmt->execute();
+    
+    $user = $stmt->fetch();
+    
+    if ($user) {
+        // User exists - check if they have a password
+        $has_password = !empty($user['password_hash']);
+        
+        echo json_encode([
+            'success' => true,
+            'exists' => true,
+            'hasPassword' => $has_password,
+            'user_id' => (int)$user['id']
+        ]);
+    } else {
+        // User does not exist
+        echo json_encode([
+            'success' => true,
+            'exists' => false
+        ]);
+    }
+    
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Database error occurred']);
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'An error occurred']);
+}
+?>
+
+/auth/login.php
+<?php
+// filepath: c:\Users\Dannel Dev\AppData\Roaming\Code\User\globalStorage\humy2833.ftp-simple\remote-workspace-temp\eb3f0a5b3b8780252fea1d7a6a9ec74d\stpauls.ctecg.co.za\api\auth\login.php
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
+// Only allow POST requests
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['status' => 'fail', 'message' => 'Method not allowed']);
+    exit;
+}
+
+try {
+    // Get JSON input
+    $input = json_decode(file_get_contents('php://input'), true);
+    
+    if (!$input || !isset($input['username']) || !isset($input['password'])) {
+        echo json_encode(['status' => 'fail', 'message' => 'Username and password required']);
+        exit;
+    }
+    
+    $username = trim($input['username']);
+    $password = $input['password'];
+      if (empty($username) || empty($password)) {
+        echo json_encode(['status' => 'fail', 'message' => 'Username and password cannot be empty']);
+        exit;
+    }
+      // Include database configuration
+    require_once '../config.php';
+    
+    // Query users table - only allow login if password is not NULL
+    $stmt = $pdo->prepare("SELECT id, username, password_hash FROM users WHERE username = :username AND password_hash IS NOT NULL");
+    $stmt->bindParam(':username', $username);
+    $stmt->execute();
+    
+    $user = $stmt->fetch();
+    
+    if ($user && password_verify($password, $user['password_hash'])) {
+        // Generate a simple token (in production, use JWT or similar)
+        $token = bin2hex(random_bytes(32));
+        
+        echo json_encode([
+            'success' => true,
+            'token' => $token,
+            'user' => [
+                'id' => (int)$user['id'],
+                'username' => $user['username']
+            ]
+        ]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Invalid credentials or password not set']);
+    }
+    
+} catch (PDOException $e) {
+    error_log("Database error: " . $e->getMessage());
+    echo json_encode(['success' => false, 'message' => 'Database error']);
+} catch (Exception $e) {
+    error_log("Login error: " . $e->getMessage());
+    echo json_encode(['success' => false, 'message' => 'Server error']);
+}
+?>
+
+/auth/set_password.php
+<?php
+/*
+Set password for user if not already set.
+Input: { user_id, password }
+Hash password and update users table.
+Return success or error.
+*/
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+// Only allow POST requests
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+    exit;
+}
+
+// Include database configuration
+require_once '../config.php';
+
+try {
+    // Get input data
+    $input = json_decode(file_get_contents('php://input'), true);
+      if (!$input) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid JSON input']);
+        exit;
+    }
+    
+    $username = $input['username'] ?? '';
+    $password = $input['password'] ?? '';
+    
+    // Validate input
+    if (empty($username) || empty($password)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'username and password are required']);
+        exit;
+    }
+    
+    // Validate password strength (minimum 6 characters)
+    if (strlen($password) < 6) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Password must be at least 6 characters long']);
+        exit;
+    }
+    
+    // Check if user exists and if they already have a password
+    $stmt = $pdo->prepare("SELECT id, username, password_hash FROM users WHERE username = :username LIMIT 1");
+    $stmt->bindParam(':username', $username, PDO::PARAM_STR);
+    $stmt->execute();
+    
+    $user = $stmt->fetch();
+    
+    if (!$user) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'User not found']);
+        exit;
+    }
+    
+    // Check if user already has a password
+    if (!empty($user['password_hash'])) {
+        http_response_code(409);
+        echo json_encode(['success' => false, 'message' => 'User already has a password set']);
+        exit;
+    }
+    
+    // Hash the password using PHP's password_hash function
+    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+    
+    // Update user's password
+    $update_stmt = $pdo->prepare("UPDATE users SET password_hash = :password_hash WHERE id = :user_id");
+    $update_stmt->bindParam(':password_hash', $hashed_password, PDO::PARAM_STR);
+    $update_stmt->bindParam(':user_id', $user['id'], PDO::PARAM_INT);
+    
+    if ($update_stmt->execute()) {
+        // Generate a simple token (in production, use JWT or similar)
+        $token = bin2hex(random_bytes(32));
+        
+        // Return success with token and user data (matching login response format)
+        echo json_encode([
+            'success' => true,
+            'message' => 'Password set successfully',
+            'token' => $token,
+            'user' => [
+                'id' => (int)$user['id'],
+                'username' => $user['username']
+            ]
+        ]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Failed to update password']);
+    }
+    
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Database error occurred']);
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'An error occurred']);
+}
+?>
+
+/late/sync.php
+<?php
+// filepath: c:\Users\Dannel Dev\AppData\Roaming\Code\User\globalStorage\humy2833.ftp-simple\remote-workspace-temp\eb3f0a5b3b8780252fea1d7a6a9ec74d\stpauls.ctecg.co.za\api\late\sync.php
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
+// Only allow POST requests
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['status' => 'fail', 'message' => 'Method not allowed']);
+    exit;
+}
+
+try {
+    // Get JSON input
+    $input = json_decode(file_get_contents('php://input'), true);
+    
+    if (!$input || !isset($input['records']) || !is_array($input['records'])) {
+        echo json_encode(['status' => 'fail', 'message' => 'Records array is required']);
+        exit;
+    }
+    
+    $records = $input['records'];
+    
+    if (empty($records)) {
+        echo json_encode(['status' => 'fail', 'message' => 'No records provided']);
+        exit;
+    }
+    
+    // Include database configuration
+    require_once '../config.php';
+    
+    // Prepare INSERT IGNORE statement to avoid duplicates
+    $stmt = $pdo->prepare("
+        INSERT IGNORE INTO late_log (learner_id, academic_year_id, late_date, recorded_at, recorded_by)
+        VALUES (:learner_id, :academic_year_id, :late_date, NOW(), :recorded_by)
+    ");
+    
+    $successful_inserts = 0;
+    $failed_records = [];
+    $processed_count = 0;
+    
+    // Begin transaction for better performance and data consistency
+    $pdo->beginTransaction();
+    
+    // Loop through each record and insert
+    foreach ($records as $index => $record) {
+        $processed_count++;
+        
+        // Validate required fields
+        if (!isset($record['learner_id']) || !isset($record['academic_year_id']) || 
+            !isset($record['late_date']) || !isset($record['user_id'])) {
+            $failed_records[] = [
+                'index' => $index,
+                'record' => $record,
+                'error' => 'Missing required fields (learner_id, academic_year_id, late_date, user_id)'
+            ];
+            continue;
+        }
+        
+        $learner_id = (int)$record['learner_id'];
+        $academic_year_id = (int)$record['academic_year_id'];
+        $late_date = $record['late_date'];
+        $user_id = (int)$record['user_id'];
+        
+        // Validate data types and values
+        if ($learner_id <= 0 || $academic_year_id <= 0 || $user_id <= 0) {
+            $failed_records[] = [
+                'index' => $index,
+                'record' => $record,
+                'error' => 'All IDs must be positive integers'
+            ];
+            continue;
+        }
+        
+        // Validate date format (YYYY-MM-DD)
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $late_date)) {
+            $failed_records[] = [
+                'index' => $index,
+                'record' => $record,
+                'error' => 'Invalid date format, expected YYYY-MM-DD'
+            ];
+            continue;
+        }
+        
+        try {
+            // Bind parameters and execute
+            $stmt->bindParam(':learner_id', $learner_id, PDO::PARAM_INT);
+            $stmt->bindParam(':academic_year_id', $academic_year_id, PDO::PARAM_INT);
+            $stmt->bindParam(':late_date', $late_date);
+            $stmt->bindParam(':recorded_by', $user_id, PDO::PARAM_INT);
+            
+            $stmt->execute();
+            
+            // Check if row was actually inserted (INSERT IGNORE may skip duplicates)
+            if ($stmt->rowCount() > 0) {
+                $successful_inserts++;
+            }
+            
+        } catch (PDOException $e) {
+            $failed_records[] = [
+                'index' => $index,
+                'record' => $record,
+                'error' => 'Database error: ' . $e->getMessage()
+            ];
+        }
+    }
+    
+    // Commit transaction
+    $pdo->commit();
+    
+    echo json_encode([
+        'status' => 'success',
+        'message' => 'Batch sync completed',
+        'total_processed' => $processed_count,
+        'successful_inserts' => $successful_inserts,
+        'failed_count' => count($failed_records),
+        'failed_records' => $failed_records
+    ]);
+    
+} catch (PDOException $e) {
+    // Rollback transaction on error
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log("Database error: " . $e->getMessage());
+    echo json_encode(['status' => 'fail', 'message' => 'Database error']);
+} catch (Exception $e) {
+    // Rollback transaction on error
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log("Sync error: " . $e->getMessage());
+    echo json_encode(['status' => 'fail', 'message' => 'Server error']);
+}
+?>
+
+/learners/get_all.php
+<?php
+// filepath: c:\Users\Dannel Dev\AppData\Roaming\Code\User\globalStorage\humy2833.ftp-simple\remote-workspace-temp\eb3f0a5b3b8780252fea1d7a6a9ec74d\stpauls.ctecg.co.za\api\learners\get_all.php
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
+// Only allow GET requests
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    http_response_code(405);
+    echo json_encode(['status' => 'fail', 'message' => 'Method not allowed']);
+    exit;
+}
+
+try {
+    // Include database configuration
+    require_once '../config.php';
+    
+    // Query to get all learners from current academic year
+    $stmt = $pdo->prepare("
+        SELECT 
+            l.id,
+            l.accession_number,
+            l.surname,
+            l.firstname,
+            l.gender,
+            l.grade,
+            l.phone_home,
+            l.phone_emergency,
+            l.academic_year_id,
+            ay.year_label
+        FROM learners l
+        INNER JOIN academic_years ay ON l.academic_year_id = ay.id
+        WHERE ay.is_current = 1
+        ORDER BY l.surname ASC
+    ");
+    
+    $stmt->execute();
+    $learners = $stmt->fetchAll();
+    
+    echo json_encode([
+        'status' => 'success',
+        'data' => $learners,
+        'count' => count($learners)
+    ]);
+    
+} catch (PDOException $e) {
+    error_log("Database error: " . $e->getMessage());
+    echo json_encode(['status' => 'fail', 'message' => 'Database error']);
+} catch (Exception $e) {
+    error_log("Get learners error: " . $e->getMessage());
+    echo json_encode(['status' => 'fail', 'message' => 'Server error']);
+}
+?>
+
+/learners/history.php
+<?php
+// filepath: c:\Users\Dannel Dev\AppData\Roaming\Code\User\globalStorage\humy2833.ftp-simple\remote-workspace-temp\eb3f0a5b3b8780252fea1d7a6a9ec74d\stpauls.ctecg.co.za\api\learners\history.php
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
+// Only allow GET requests
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    http_response_code(405);
+    echo json_encode(['status' => 'fail', 'message' => 'Method not allowed']);
+    exit;
+}
+
+try {
+    // Get parameters
+    $learner_id = isset($_GET['learner_id']) ? (int)$_GET['learner_id'] : 0;
+    $academic_year_id = isset($_GET['academic_year_id']) ? (int)$_GET['academic_year_id'] : 0;
+    
+    if ($learner_id <= 0) {
+        echo json_encode(['status' => 'fail', 'message' => 'Valid learner_id parameter is required']);
+        exit;
+    }
+    
+    if ($academic_year_id <= 0) {
+        echo json_encode(['status' => 'fail', 'message' => 'Valid academic_year_id parameter is required']);
+        exit;
+    }
+    
+    // Include database configuration
+    require_once '../config.php';
+    
+    // Query late_log table for the specific learner and academic year
+    $stmt = $pdo->prepare("
+        SELECT 
+            ll.id,
+            ll.late_date,
+            ll.recorded_at,
+            ll.recorded_by,
+            l.surname,
+            l.firstname,
+            ay.year_label
+        FROM late_log ll
+        INNER JOIN learners l ON ll.learner_id = l.id
+        INNER JOIN academic_years ay ON ll.academic_year_id = ay.id
+        WHERE ll.learner_id = :learner_id 
+        AND ll.academic_year_id = :academic_year_id
+        ORDER BY ll.late_date DESC
+    ");
+    
+    $stmt->bindParam(':learner_id', $learner_id, PDO::PARAM_INT);
+    $stmt->bindParam(':academic_year_id', $academic_year_id, PDO::PARAM_INT);
+    $stmt->execute();
+    
+    $late_records = $stmt->fetchAll();
+    
+    // Extract just the dates for easier use
+    $late_dates = array_map(function($record) {
+        return $record['late_date'];
+    }, $late_records);
+    
+    echo json_encode([
+        'status' => 'success',
+        'learner_id' => $learner_id,
+        'academic_year_id' => $academic_year_id,
+        'late_dates' => $late_dates,
+        'detailed_records' => $late_records,
+        'count' => count($late_records)
+    ]);
+    
+} catch (PDOException $e) {
+    error_log("Database error: " . $e->getMessage());
+    echo json_encode(['status' => 'fail', 'message' => 'Database error']);
+} catch (Exception $e) {
+    error_log("Get late history error: " . $e->getMessage());
+    echo json_encode(['status' => 'fail', 'message' => 'Server error']);
+}
+?>
+
+/learners/import.php
+<?php
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
+// Only allow POST requests
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['status' => 'fail', 'message' => 'Method not allowed']);
+    exit;
+}
+
+try {
+    // Include database configuration
+    require_once '../config.php';
+    
+    // Get current academic year
+    $yearStmt = $pdo->prepare("SELECT id FROM academic_years WHERE is_current = 1 LIMIT 1");
+    $yearStmt->execute();
+    $currentYear = $yearStmt->fetch();
+    
+    if (!$currentYear) {
+        echo json_encode(['status' => 'fail', 'message' => 'No current academic year found. Please set a current academic year first.']);
+        exit;
+    }
+    
+    $academic_year_id = $currentYear['id'];
+
+    // Check if file was uploaded
+    if (!isset($_FILES['csv_file']) || $_FILES['csv_file']['error'] !== UPLOAD_ERR_OK) {
+        echo json_encode([
+            'status' => 'fail', 
+            'message' => isset($_FILES['csv_file']) ? 'File upload error: ' . $_FILES['csv_file']['error'] : 'No file uploaded'
+        ]);
+        exit;
+    }
+    
+    // Validate file type
+    $csvFile = $_FILES['csv_file']['tmp_name'];
+    $mimeType = mime_content_type($csvFile);
+    $allowedTypes = ['text/csv', 'text/plain', 'application/vnd.ms-excel', 'application/csv', 'application/x-csv'];
+    
+    if (!in_array($mimeType, $allowedTypes)) {
+        echo json_encode([
+            'status' => 'fail', 
+            'message' => 'Invalid file type. Please upload a CSV file.'
+        ]);
+        exit;
+    }
+    
+    if (!file_exists($csvFile)) {
+        echo json_encode(['status' => 'fail', 'message' => 'CSV file not found']);
+        exit;
+    }
+    
+    $handle = fopen($csvFile, 'rb');
+    if ($handle === false) {
+        echo json_encode(['status' => 'fail', 'message' => 'Failed to open CSV file']);
+        exit;
+    }
+
+    // Auto-detect delimiter (comma or semicolon)
+    $firstLine = fgets($handle);
+    rewind($handle);
+    
+    $delimiter = ';'; // Default delimiter
+    if (strpos($firstLine, ',') !== false) {
+        // Check if there are more commas than semicolons
+        if (substr_count($firstLine, ',') > substr_count($firstLine, ';')) {
+            $delimiter = ',';
+        }
+    }
+    
+    // Process header row with detected delimiter
+    $header = fgetcsv($handle, 0, $delimiter);
+    
+    $rowNum = 1;
+    $imported = 0;
+    $skipped = 0;
+    $totalLines = 0;
+    
+    // Prepare INSERT statement with academic_year_id
+    $stmt = $pdo->prepare("
+        INSERT IGNORE INTO learners 
+        (accession_number, surname, firstname, gender, grade, phone_home, phone_emergency, academic_year_id) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    
+    while (($data = fgetcsv($handle, 0, $delimiter)) !== false) {
+        $totalLines++;
+        $rowNum++;
+        
+        // Expecting at least 7 columns: Number, Accession Number, Surname, First Name, Gender, Grade, Phone
+        if (count($data) < 7) {
+            $skipped++;
+            continue;
+        }
+        
+        // Extract and clean fields
+        $accession_number = trim($data[1]);
+        $surname = trim($data[2]);
+        $firstname = trim($data[3]);
+        $gender = trim($data[4]);
+        $grade = trim($data[5]);
+        $phones = trim(str_replace('"', '', $data[6]));
+        $phone_home = '';
+        $phone_emergency = '';
+        
+        // Split phone numbers by line break
+        $phone_lines = preg_split('/\r\n|\r|\n/', $phones);
+        foreach ($phone_lines as $line) {
+            // Clean phone number value
+            $clean_value = trim(preg_replace('/\s+/', '', $line)); // Remove all whitespace
+            
+            if (stripos($line, '(H)') !== false) {
+                $clean_value = str_ireplace('(H)', '', $clean_value);
+                // Replace <N/A> with empty string (will be NULL in database)
+                $phone_home = (stripos($clean_value, '<N/A>') !== false) ? '' : $clean_value;
+            } elseif (stripos($line, '(E)') !== false) {
+                $clean_value = str_ireplace('(E)', '', $clean_value);
+                // Replace <N/A> with empty string (will be NULL in database)
+                $phone_emergency = (stripos($clean_value, '<N/A>') !== false) ? '' : $clean_value;
+            }
+        }
+        
+        // Convert empty strings to NULL for phone fields
+        $phone_home = empty($phone_home) ? null : $phone_home;
+        $phone_emergency = empty($phone_emergency) ? null : $phone_emergency;
+        
+        try {
+            $stmt->execute([
+                $accession_number, 
+                $surname, 
+                $firstname, 
+                $gender, 
+                $grade, 
+                $phone_home, 
+                $phone_emergency, 
+                $academic_year_id
+            ]);
+            
+            if ($stmt->rowCount() > 0) {
+                $imported++;
+            } else {
+                $skipped++; // Duplicate record (INSERT IGNORE)
+            }
+            
+        } catch (PDOException $e) {
+            error_log("Import error for row $rowNum: " . $e->getMessage());
+            $skipped++;
+        }
+    }
+    
+    fclose($handle);
+    
+    echo json_encode([
+        'status' => 'success',
+        'message' => 'Import completed',
+        'stats' => [
+            'imported' => $imported,
+            'skipped' => $skipped,
+            'total' => $totalLines
+        ],
+        'academic_year_id' => $academic_year_id
+    ]);
+    
+} catch (PDOException $e) {
+    error_log("Database error: " . $e->getMessage());
+    echo json_encode(['status' => 'fail', 'message' => 'Database error']);
+} catch (Exception $e) {
+    error_log("Import error: " . $e->getMessage());
+    echo json_encode(['status' => 'fail', 'message' => 'Server error']);
+}
+
+/learners/mark.php
+<?php
+// filepath: c:\Users\Dannel Dev\AppData\Roaming\Code\User\globalStorage\humy2833.ftp-simple\remote-workspace-temp\eb3f0a5b3b8780252fea1d7a6a9ec74d\stpauls.ctecg.co.za\api\learners\mark.php
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
+// Only allow POST requests
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['status' => 'fail', 'message' => 'Method not allowed']);
+    exit;
+}
+
+try {
+    // Get JSON input
+    $input = json_decode(file_get_contents('php://input'), true);
+    
+    if (!$input || !isset($input['learner_id']) || !isset($input['academic_year_id']) || !isset($input['user_id'])) {
+        echo json_encode(['status' => 'fail', 'message' => 'learner_id, academic_year_id, and user_id are required']);
+        exit;
+    }
+    
+    $learner_id = (int)$input['learner_id'];
+    $academic_year_id = (int)$input['academic_year_id'];
+    $user_id = (int)$input['user_id'];
+    
+    if ($learner_id <= 0 || $academic_year_id <= 0 || $user_id <= 0) {
+        echo json_encode(['status' => 'fail', 'message' => 'All IDs must be positive integers']);
+        exit;
+    }
+    
+    // Include database configuration
+    require_once '../config.php';
+    
+    // Get today's date
+    $today = date('Y-m-d');
+    
+    // Check if learner is already marked late today
+    $checkStmt = $pdo->prepare("
+        SELECT id FROM late_log 
+        WHERE learner_id = :learner_id 
+        AND academic_year_id = :academic_year_id 
+        AND late_date = :late_date
+    ");
+    
+    $checkStmt->bindParam(':learner_id', $learner_id, PDO::PARAM_INT);
+    $checkStmt->bindParam(':academic_year_id', $academic_year_id, PDO::PARAM_INT);
+    $checkStmt->bindParam(':late_date', $today);
+    $checkStmt->execute();
+    
+    if ($checkStmt->fetch()) {
+        echo json_encode([
+            'status' => 'fail', 
+            'message' => 'Learner already marked late for today',
+            'date' => $today
+        ]);
+        exit;
+    }
+    
+    // Verify learner exists and belongs to the academic year
+    $learnerStmt = $pdo->prepare("
+        SELECT l.id, l.surname, l.firstname 
+        FROM learners l
+        WHERE l.id = :learner_id AND l.academic_year_id = :academic_year_id
+    ");
+    
+    $learnerStmt->bindParam(':learner_id', $learner_id, PDO::PARAM_INT);
+    $learnerStmt->bindParam(':academic_year_id', $academic_year_id, PDO::PARAM_INT);
+    $learnerStmt->execute();
+    
+    $learner = $learnerStmt->fetch();
+    
+    if (!$learner) {
+        echo json_encode(['status' => 'fail', 'message' => 'Learner not found in specified academic year']);
+        exit;
+    }
+    
+    // Insert late record
+    $insertStmt = $pdo->prepare("
+        INSERT INTO late_log (learner_id, academic_year_id, late_date, recorded_at, recorded_by)
+        VALUES (:learner_id, :academic_year_id, :late_date, NOW(), :recorded_by)
+    ");
+    
+    $insertStmt->bindParam(':learner_id', $learner_id, PDO::PARAM_INT);
+    $insertStmt->bindParam(':academic_year_id', $academic_year_id, PDO::PARAM_INT);
+    $insertStmt->bindParam(':late_date', $today);
+    $insertStmt->bindParam(':recorded_by', $user_id, PDO::PARAM_INT);
+    
+    $insertStmt->execute();
+    
+    $late_log_id = $pdo->lastInsertId();
+    
+    echo json_encode([
+        'status' => 'success',
+        'message' => 'Learner marked as late successfully',
+        'late_log_id' => (int)$late_log_id,
+        'learner' => [
+            'id' => $learner['id'],
+            'name' => $learner['firstname'] . ' ' . $learner['surname']
+        ],
+        'late_date' => $today,
+        'recorded_by' => $user_id
+    ]);
+    
+} catch (PDOException $e) {
+    error_log("Database error: " . $e->getMessage());
+    echo json_encode(['status' => 'fail', 'message' => 'Database error']);
+} catch (Exception $e) {
+    error_log("Mark late error: " . $e->getMessage());
+    echo json_encode(['status' => 'fail', 'message' => 'Server error']);
+}
+?>
+
+/learners/search.php
+<?php
+// filepath: c:\Users\Dannel Dev\AppData\Roaming\Code\User\globalStorage\humy2833.ftp-simple\remote-workspace-temp\eb3f0a5b3b8780252fea1d7a6a9ec74d\stpauls.ctecg.co.za\api\learners\search.php
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
+// Only allow GET requests
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    http_response_code(405);
+    echo json_encode(['status' => 'fail', 'message' => 'Method not allowed']);
+    exit;
+}
+
+try {
+    // Get search query parameter
+    $searchQuery = isset($_GET['q']) ? trim($_GET['q']) : '';
+    
+    if (empty($searchQuery)) {
+        echo json_encode(['status' => 'fail', 'message' => 'Search query parameter "q" is required']);
+        exit;
+    }
+    
+    // Include database configuration
+    require_once '../config.php';
+    
+    // Search learners by surname or firstname in current academic year
+    $stmt = $pdo->prepare("
+        SELECT 
+            l.id,
+            l.accession_number,
+            l.surname,
+            l.firstname,
+            l.gender,
+            l.grade,
+            l.phone_home,
+            l.phone_emergency,
+            l.academic_year_id,
+            ay.year_label
+        FROM learners l
+        INNER JOIN academic_years ay ON l.academic_year_id = ay.id
+        WHERE ay.is_current = 1
+        AND (l.surname LIKE :search OR l.firstname LIKE :search)
+        ORDER BY l.surname ASC, l.firstname ASC
+    ");
+    
+    $searchParam = '%' . $searchQuery . '%';
+    $stmt->bindParam(':search', $searchParam);
+    $stmt->execute();
+    
+    $learners = $stmt->fetchAll();
+    
+    echo json_encode([
+        'status' => 'success',
+        'data' => $learners,
+        'count' => count($learners),
+        'search_query' => $searchQuery
+    ]);
+    
+} catch (PDOException $e) {
+    error_log("Database error: " . $e->getMessage());
+    echo json_encode(['status' => 'fail', 'message' => 'Database error']);
+} catch (Exception $e) {
+    error_log("Search learners error: " . $e->getMessage());
+    echo json_encode(['status' => 'fail', 'message' => 'Server error']);
+}
+?>
+
+/year/get_all.php
+<?php
+// filepath: c:\Users\Dannel Dev\AppData\Roaming\Code\User\globalStorage\humy2833.ftp-simple\remote-workspace-temp\eb3f0a5b3b8780252fea1d7a6a9ec74d\stpauls.ctecg.co.za\api\year\get_all.php
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
+// Only allow GET requests
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    http_response_code(405);
+    echo json_encode(['status' => 'fail', 'message' => 'Method not allowed']);
+    exit;
+}
+
+try {
+    // Include database configuration
+    require_once '../config.php';
+    
+    // Query to get all academic years, newest first
+    $stmt = $pdo->prepare("
+        SELECT 
+            id,
+            year_label,
+            is_current
+        FROM academic_years
+        ORDER BY id DESC
+    ");
+    
+    $stmt->execute();
+    $academic_years = $stmt->fetchAll();
+    
+    echo json_encode([
+        'status' => 'success',
+        'data' => $academic_years,
+        'count' => count($academic_years)
+    ]);
+    
+} catch (PDOException $e) {
+    error_log("Database error: " . $e->getMessage());
+    echo json_encode(['status' => 'fail', 'message' => 'Database error']);
+} catch (Exception $e) {
+    error_log("Get academic years error: " . $e->getMessage());
+    echo json_encode(['status' => 'fail', 'message' => 'Server error']);
+}
+?>
+
+/year/set_current.php
+<?php
+// filepath: c:\Users\Dannel Dev\AppData\Roaming\Code\User\globalStorage\humy2833.ftp-simple\remote-workspace-temp\eb3f0a5b3b8780252fea1d7a6a9ec74d\stpauls.ctecg.co.za\api\year\set_current.php
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
+// Only allow POST requests
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['status' => 'fail', 'message' => 'Method not allowed']);
+    exit;
+}
+
+try {
+    // Get JSON input
+    $input = json_decode(file_get_contents('php://input'), true);
+    
+    if (!$input || !isset($input['year_id'])) {
+        echo json_encode(['status' => 'fail', 'message' => 'year_id is required']);
+        exit;
+    }
+    
+    $year_id = (int)$input['year_id'];
+    
+    if ($year_id <= 0) {
+        echo json_encode(['status' => 'fail', 'message' => 'year_id must be a positive integer']);
+        exit;
+    }
+    
+    // Include database configuration
+    require_once '../config.php';
+    
+    // Start transaction to ensure data consistency
+    $pdo->beginTransaction();
+    
+    // First, verify the academic year exists
+    $checkStmt = $pdo->prepare("SELECT id, year_label FROM academic_years WHERE id = :year_id");
+    $checkStmt->bindParam(':year_id', $year_id, PDO::PARAM_INT);
+    $checkStmt->execute();
+    
+    $academicYear = $checkStmt->fetch();
+    
+    if (!$academicYear) {
+        $pdo->rollBack();
+        echo json_encode(['status' => 'fail', 'message' => 'Academic year not found']);
+        exit;
+    }
+    
+    // Set all academic years to is_current = 0
+    $resetStmt = $pdo->prepare("UPDATE academic_years SET is_current = 0");
+    $resetStmt->execute();
+    
+    // Set the specified year to is_current = 1
+    $setCurrentStmt = $pdo->prepare("UPDATE academic_years SET is_current = 1 WHERE id = :year_id");
+    $setCurrentStmt->bindParam(':year_id', $year_id, PDO::PARAM_INT);
+    $setCurrentStmt->execute();
+    
+    // Commit transaction
+    $pdo->commit();
+    
+    echo json_encode([
+        'status' => 'success',
+        'message' => 'Current academic year updated successfully',
+        'current_year' => [
+            'id' => (int)$academicYear['id'],
+            'year_label' => $academicYear['year_label']
+        ]
+    ]);
+    
+} catch (PDOException $e) {
+    // Rollback transaction on error
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log("Database error: " . $e->getMessage());
+    echo json_encode(['status' => 'fail', 'message' => 'Database error']);
+} catch (Exception $e) {
+    // Rollback transaction on error
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log("Set current year error: " . $e->getMessage());
+    echo json_encode(['status' => 'fail', 'message' => 'Server error']);
+}
+?>

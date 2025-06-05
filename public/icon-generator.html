@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Icon Generator</title>
+  </head>
+  <body>
+    <canvas
+      id="canvas64"
+      width="64"
+      height="64"
+      style="border: 1px solid #ccc"
+    ></canvas>
+    <canvas
+      id="canvas192"
+      width="192"
+      height="192"
+      style="border: 1px solid #ccc"
+    ></canvas>
+    <canvas
+      id="canvas512"
+      width="512"
+      height="512"
+      style="border: 1px solid #ccc"
+    ></canvas>
+
+    <script>
+      function drawIcon(canvas, size) {
+        const ctx = canvas.getContext("2d");
+
+        // Background
+        ctx.fillStyle = "#3b82f6";
+        ctx.fillRect(0, 0, size, size);
+
+        // Border radius effect (simplified)
+        ctx.globalCompositeOperation = "destination-in";
+        ctx.beginPath();
+        ctx.roundRect(0, 0, size, size, size * 0.125);
+        ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
+
+        // Text
+        ctx.fillStyle = "white";
+        ctx.font = `bold ${size * 0.375}px Arial`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("SP", size / 2, size / 2);
+      }
+
+      drawIcon(document.getElementById("canvas64"), 64);
+      drawIcon(document.getElementById("canvas192"), 192);
+      drawIcon(document.getElementById("canvas512"), 512);
+
+      // Download function
+      function downloadCanvas(canvasId, filename) {
+        const canvas = document.getElementById(canvasId);
+        const link = document.createElement("a");
+        link.download = filename;
+        link.href = canvas.toDataURL();
+        link.click();
+      }
+
+      setTimeout(() => {
+        downloadCanvas("canvas64", "pwa-64x64.png");
+        downloadCanvas("canvas192", "pwa-192x192.png");
+        downloadCanvas("canvas512", "pwa-512x512.png");
+      }, 1000);
+    </script>
+  </body>
+</html>

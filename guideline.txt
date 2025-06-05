@@ -1,0 +1,19 @@
+// React API service for communicating with PHP backend
+// Endpoints:
+// - POST /api/auth/login.php { username, password }
+// - GET  /api/learners/get_all.php?year_id=1
+// - GET  /api/learners/search.php?q=raisibe
+// - POST /api/late/mark.php { learner_id, user_id, academic_year_id }
+// - GET  /api/learners/history.php?learner_id=1&year_id=1
+// - POST /api/late/sync.php [{ learner_id, user_id, academic_year_id, late_date }]
+
+// Tables used:
+// - users (id, username, password_hash)
+// - learners (id, accession_number, surname, firstname, gender, grade, phone_home, phone_emergency, academic_year_id)
+// - late_log (id, learner_id, academic_year_id, late_date, recorded_at, recorded_by)
+// - academic_years (id, year_label, is_current)
+
+You can read the Endpoints by: https:stpauls.ctecg.co.za/api/(Endpoint)
+
+Write production ready code.
+Always check for errors once you are done.
