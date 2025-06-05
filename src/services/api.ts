@@ -290,16 +290,24 @@ export async function markLearnerLate(data: {
   learner_id: number;
   user_id: number;
   academic_year_id: number;
-  late_date: string;
+  late_date?: string;
 }): Promise<{ success: boolean; message?: string }> {
   try {
-    const response = await fetch(`${API_BASE_URL}/learners/mark.php`, {
+    // Ensure we have all required fields including user_id
+    const requestData = {
+      learner_id: data.learner_id,
+      user_id: data.user_id,
+      academic_year_id: data.academic_year_id,
+      late_date: data.late_date || new Date().toISOString(),
+    };
+
+    const response = await fetch(`${API_BASE_URL}/late/mark.php`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(authToken && { Authorization: `Bearer ${authToken}` }),
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(requestData),
     });
 
     const result = await response.json();
@@ -322,6 +330,18 @@ export async function syncLateRecords(
     if (lateRecords.length === 0) {
       console.log("[API] No records to sync");
       return { success: 0, failed: 0, errors: [] };
+    }    // Validate that all records have required fields including user_id
+    const invalidRecords = lateRecords.filter(
+      (record) => !record.user_id || !record.learner_id || !record.academic_year_id
+    );
+    
+    if (invalidRecords.length > 0) {
+      console.error("[API] Invalid records found - missing required fields:", invalidRecords);
+      return { 
+        success: 0, 
+        failed: lateRecords.length, 
+        errors: [`${invalidRecords.length} records missing required fields (user_id, learner_id, or academic_year_id)`] 
+      };
     }
 
     const syncData = lateRecords.map((record) => ({
@@ -331,13 +351,12 @@ export async function syncLateRecords(
       late_date: record.late_date,
     }));
 
-    console.log("[API] Sync data:", syncData);
+    console.log("[API] Sync data with user_id validation:", syncData);
+    console.log("[API] Sample record user_id:", syncData[0]?.user_id);
     console.log("[API] Auth token:", authToken ? "Present" : "Missing");
 
     const url = `${API_BASE_URL}/late/sync.php`;
-    console.log("[API] Sync URL:", url);
-
-    const response = await fetch(url, {
+    console.log("[API] Sync URL:", url);    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

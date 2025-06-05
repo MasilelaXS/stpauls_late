@@ -61,17 +61,17 @@ export default defineConfig({
         orientation: "portrait",
         icons: [
           {
-            src: "pwa-64x64.png",
+            src: "favicon.ico",
             sizes: "64x64",
             type: "image/png",
           },
           {
-            src: "icon.svg",
+            src: "favicon.ico",
             sizes: "192x192",
             type: "image/svg+xml",
           },
           {
-            src: "icon.svg",
+            src: "favicon.ico",
             sizes: "512x512",
             type: "image/svg+xml",
             purpose: "any maskable",

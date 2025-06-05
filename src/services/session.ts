@@ -229,7 +229,7 @@ export function getUsername(): string | null {
 export async function checkConnectivity(): Promise<boolean> {
   try {
     // Try to fetch a small resource to verify connectivity
-    const response = await fetch("/icon.svg", {
+    const response = await fetch("/favicon.ico", {
       method: "HEAD",
       cache: "no-cache",
     });

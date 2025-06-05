@@ -58,7 +58,6 @@ export function useOfflineQueue() {
       setIsLoading(false);
     }
   }, []); // Empty dependency array since this function doesn't depend on any props or state
-
   // Add a learner to the late queue
   const addLearnerToLateQueue = useCallback(
     async (learnerId: number, lateDate: Date = new Date()) => {
@@ -66,6 +65,9 @@ export function useOfflineQueue() {
         // Get current user from localStorage
         const currentUserStr = localStorage.getItem("currentUser");
         const currentUser = currentUserStr ? JSON.parse(currentUserStr) : null;
+        
+        console.log("[useOfflineQueue] Current user from localStorage:", currentUser);
+        console.log("[useOfflineQueue] User ID to be used:", currentUser?.id || 1);
 
         // Get current academic year (defaulting to 1 for now)
         const currentAcademicYearId = 1;
@@ -77,6 +79,8 @@ export function useOfflineQueue() {
           academic_year_id: currentAcademicYearId,
           user_id: currentUser?.id || 1, // Default to user ID 1 if not found
         };
+
+        console.log("[useOfflineQueue] Late record to be added:", lateRecord);
 
         await addLateRecord(lateRecord);
 

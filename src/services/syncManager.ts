@@ -36,8 +36,14 @@ export async function syncLateRecords(): Promise<{
     if (lateRecords.length === 0) {
       console.log("[SyncManager] No late records to sync");
       return { success: 0, failed: 0 };
+    }    console.log(`[SyncManager] Found ${lateRecords.length} records to sync`);
+    
+    // Validate that all records have user_id before syncing
+    console.log("[SyncManager] Sample record:", lateRecords[0]);
+    const recordsWithoutUserId = lateRecords.filter(record => !record.user_id);
+    if (recordsWithoutUserId.length > 0) {
+      console.error("[SyncManager] Records missing user_id:", recordsWithoutUserId);
     }
-    console.log(`[SyncManager] Found ${lateRecords.length} records to sync`);
 
     // Use the bulk sync API instead of individual calls
     const syncResult = await apiSyncLateRecords(lateRecords);
