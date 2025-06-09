@@ -292,8 +292,7 @@ try {
         echo json_encode(['status' => 'fail', 'message' => 'No records provided']);
         exit;
     }
-    
-    // Include database configuration
+      // Include database configuration
     require_once '../config.php';
     
     // Prepare INSERT IGNORE statement to avoid duplicates
@@ -304,6 +303,8 @@ try {
     
     $successful_inserts = 0;
     $failed_records = [];
+    $successful_indices = []; // Track which record indices were successfully inserted
+    $skipped_indices = []; // Track which record indices were skipped (duplicates)
     $processed_count = 0;
     
     // Begin transaction for better performance and data consistency

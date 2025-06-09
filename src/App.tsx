@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "@/pages/Home";
 import Login from "@/pages/Login";
 import ViewReport from "@/pages/ViewReport";
+import LearnerDetails from "@/pages/LearnerDetails";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PWAUpdateNotification from "@/components/PWAUpdateNotification";
 import { Toaster } from "@/components/ui/sonner";
@@ -71,6 +72,20 @@ function App() {
             userLoggedIn ? (
               <ProtectedRoute>
                 <ViewReport />
+              </ProtectedRoute>
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+
+        {/* Protected learner details route - only accessible when logged in */}
+        <Route
+          path="/learner/:id"
+          element={
+            userLoggedIn ? (
+              <ProtectedRoute>
+                <LearnerDetails />
               </ProtectedRoute>
             ) : (
               <Navigate to="/login" replace />

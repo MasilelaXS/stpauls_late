@@ -65,9 +65,15 @@ export function useOfflineQueue() {
         // Get current user from localStorage
         const currentUserStr = localStorage.getItem("currentUser");
         const currentUser = currentUserStr ? JSON.parse(currentUserStr) : null;
-        
-        console.log("[useOfflineQueue] Current user from localStorage:", currentUser);
-        console.log("[useOfflineQueue] User ID to be used:", currentUser?.id || 1);
+
+        console.log(
+          "[useOfflineQueue] Current user from localStorage:",
+          currentUser
+        );
+        console.log(
+          "[useOfflineQueue] User ID to be used:",
+          currentUser?.id || 1
+        );
 
         // Get current academic year (defaulting to 1 for now)
         const currentAcademicYearId = 1;

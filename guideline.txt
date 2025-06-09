@@ -8,8 +8,8 @@
 // - POST /api/late/sync.php [{ learner_id, user_id, academic_year_id, late_date }]
 
 // Tables used:
-// - users (id, username, password_hash)
-// - learners (id, accession_number, surname, firstname, gender, grade, phone_home, phone_emergency, academic_year_id)
+// - users (id, username, password_hash, created_at)
+// - learners (id, academic_year_id, accession_number, surname, firstname, gender, grade, phone_home, phone_emergency)
 // - late_log (id, learner_id, user_id, academic_year_id, late_date, recorded_at, recorded_by)
 // - academic_years (id, year_label, is_current)
 

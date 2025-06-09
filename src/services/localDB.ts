@@ -93,8 +93,8 @@ export async function cacheLearners(learners: Learner[]): Promise<void> {
     // Clear existing learners for the current academic year
     await db.learners.clear();
 
-    // Add all learners to cache
-    await db.learners.bulkAdd(learners);
+    // Use bulkPut to handle existing IDs properly (insert or update)
+    await db.learners.bulkPut(learners);
 
     console.log(`[LocalDB] Cached ${learners.length} learners`);
   } catch (error) {
@@ -168,6 +168,56 @@ export async function removeLateQueueItem(id: number): Promise<void> {
     console.log(`[LocalDB] Removed late record ${id} from queue`);
   } catch (error) {
     console.error(`[LocalDB] Failed to remove late record ${id}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Remove multiple late records from queue (used after successful batch sync)
+ */
+export async function removeLateQueueItems(ids: number[]): Promise<void> {
+  try {
+    await db.lateQueue.bulkDelete(ids);
+    console.log(`[LocalDB] Removed ${ids.length} late records from queue`);
+  } catch (error) {
+    console.error(`[LocalDB] Failed to remove late records:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get count of records in the late queue
+ */
+export async function getLateQueueCount(): Promise<number> {
+  try {
+    return await db.lateQueue.count();
+  } catch (error) {
+    console.error("[LocalDB] Failed to get late queue count:", error);
+    throw error;
+  }
+}
+
+/**
+ * Remove late records older than specified date (utility for cleanup)
+ */
+export async function removeOldLateRecords(olderThan: Date): Promise<number> {
+  try {
+    const oldRecords = await db.lateQueue
+      .where("late_date")
+      .below(olderThan.toISOString())
+      .toArray();
+
+    if (oldRecords.length > 0) {
+      const idsToRemove = oldRecords.map((record) => record.id!);
+      await db.lateQueue.bulkDelete(idsToRemove);
+      console.log(
+        `[LocalDB] Removed ${oldRecords.length} old late records from queue`
+      );
+    }
+
+    return oldRecords.length;
+  } catch (error) {
+    console.error("[LocalDB] Failed to remove old late records:", error);
     throw error;
   }
 }

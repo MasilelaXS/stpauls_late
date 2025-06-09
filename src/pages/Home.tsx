@@ -329,8 +329,7 @@ const Home = () => {
                       <h3 className="font-semibold text-gray-900">
                         Quick Actions
                       </h3>
-                    </div>{" "}
-                    <div className="space-y-2">
+                    </div>{" "}                    <div className="space-y-2">
                       <button
                         onClick={() => {
                           navigate("/reports");
@@ -341,21 +340,27 @@ const Home = () => {
                         <FileText className="h-4 w-4" />
                         View Late Report
                       </button>
-                      <button className="w-full text-left px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors flex items-center gap-2 text-gray-700">
-                        <Download className="h-4 w-4" />
-                        Export Data
-                      </button>
-                      <button className="w-full text-left px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors flex items-center gap-2 text-gray-700">
-                        <Settings className="h-4 w-4" />
-                        Settings
-                      </button>                    </div>
+                      <div className="w-full px-3 py-2 text-sm bg-gray-100 rounded flex items-center justify-between text-gray-700">
+                        <div className="flex items-center gap-2">
+                          <Download className="h-4 w-4" />
+                          Export Data
+                        </div>
+                        <span className="text-xs text-gray-500">Coming soon</span>
+                      </div>
+                      <div className="w-full px-3 py-2 text-sm bg-gray-100 rounded flex items-center justify-between text-gray-700">
+                        <div className="flex items-center gap-2">
+                          <Settings className="h-4 w-4" />
+                          Settings
+                        </div>
+                        <span className="text-xs text-gray-500">Coming soon</span>
+                      </div>{" "}
+                    </div>
                   </div>
-                  
                   {/* Powered by Dannel Web - Mobile Menu */}
                   <div className="text-center pt-4 border-t border-gray-200">
-                    <a 
-                      href="https://dannel.co.za" 
-                      target="_blank" 
+                    <a
+                      href="https://dannel.co.za"
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
                     >
@@ -518,8 +523,7 @@ const Home = () => {
                     </span>
                   </div>
                 </AccordionTrigger>{" "}
-                <AccordionContent className="px-4 pb-4">
-                  <div className="space-y-2">
+                <AccordionContent className="px-4 pb-4">                  <div className="space-y-2">
                     <button
                       onClick={() => navigate("/reports")}
                       className="w-full text-left px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded transition-colors flex items-center gap-2 text-gray-700"
@@ -527,23 +531,30 @@ const Home = () => {
                       <FileText className="h-4 w-4" />
                       View Late Report
                     </button>
-                    <button className="w-full text-left px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded transition-colors flex items-center gap-2 text-gray-700">
-                      <Download className="h-4 w-4" />
-                      Export Data
-                    </button>
-                    <button className="w-full text-left px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded transition-colors flex items-center gap-2 text-gray-700">
-                      <Settings className="h-4 w-4" />
-                      Settings
-                    </button>
-                  </div>                </AccordionContent>
+                    <div className="w-full px-3 py-2 text-sm bg-gray-50 rounded flex items-center justify-between text-gray-700">
+                      <div className="flex items-center gap-2">
+                        <Download className="h-4 w-4" />
+                        Export Data
+                      </div>
+                      <span className="text-xs text-gray-500">Coming soon</span>
+                    </div>
+                    <div className="w-full px-3 py-2 text-sm bg-gray-50 rounded flex items-center justify-between text-gray-700">
+                      <div className="flex items-center gap-2">
+                        <Settings className="h-4 w-4" />
+                        Settings
+                      </div>
+                      <span className="text-xs text-gray-500">Coming soon</span>
+                    </div>
+                  </div>{" "}
+                </AccordionContent>
               </AccordionItem>
             </Accordion>
-            
+
             {/* Powered by Dannel Web - Desktop */}
             <div className="mt-4 text-center">
-              <a 
-                href="https://dannel.co.za" 
-                target="_blank" 
+              <a
+                href="https://dannel.co.za"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
               >
@@ -553,12 +564,11 @@ const Home = () => {
           </div>
         </div>
       </div>
-      
       {/* Powered by Dannel Web - Mobile (fixed at bottom) */}
       <div className="lg:hidden fixed bottom-4 left-0 right-0 text-center z-10">
-        <a 
-          href="https://dannel.co.za" 
-          target="_blank" 
+        <a
+          href="https://dannel.co.za"
+          target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-gray-500 hover:text-gray-700 transition-colors bg-white px-3 py-1 rounded-full shadow-sm border border-gray-200"
         >
